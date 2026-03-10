@@ -23,12 +23,13 @@ const Index = () => {
     ? `monero:${XMR_ADDRESS}?tx_amount=${xmrAmount.toFixed(12)}`
     : "";
 
-  const isPaymentActive = step === "payment";
+  const isPaymentActive = step === "payment" || step === "success";
   const { status, transfer } = usePaymentVerification(xmrAmount, isPaymentActive);
 
   // Auto-advance to success when payment detected
-  if (step === "payment" && (status === "detected" || status === "confirmed")) {
-    setStep("success");
+  const shouldAdvance = step === "payment" && (status === "detected" || status === "confirmed");
+  if (shouldAdvance) {
+    setTimeout(() => setStep("success"), 0);
   }
 
   const handleSubmit = () => {
