@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useXmrPrice, useXmrConversion } from "@/hooks/useXmrPrice";
 import { usePaymentVerification } from "@/hooks/usePaymentVerification";
-import { Shield, Lock, Eye, Zap, Loader2 } from "lucide-react";
+import { useExpiryTimer } from "@/hooks/useExpiryTimer";
+import { Shield, Lock, Eye, Zap, Loader2, AlertTriangle, Timer } from "lucide-react";
 import XmrLogo from "@/components/XmrLogo";
 import PaymentForm from "@/components/PaymentForm";
 import PaymentDetails from "@/components/PaymentDetails";
@@ -9,7 +10,7 @@ import PaymentSuccess from "@/components/PaymentSuccess";
 
 const XMR_ADDRESS = "42pkzGx9iv3exFFUmK87Lzi5DfBZPfcRSauv2Lnq1RxRZFjsmoA84sw2RWjPPrxL2tRKcWyaCV9L4eoXFBc4ytfpJW6MG8V";
 
-type Step = "form" | "payment" | "success";
+type Step = "form" | "payment" | "success" | "expired";
 
 const Index = () => {
   const { price, loading, error } = useXmrPrice();
@@ -23,13 +24,19 @@ const Index = () => {
     ? `monero:${XMR_ADDRESS}?tx_amount=${xmrAmount.toFixed(12)}`
     : "";
 
-  const isPaymentActive = step === "payment" || step === "success";
+  const isPaymentActive = step === "payment";
   const { status, transfer } = usePaymentVerification(xmrAmount, isPaymentActive);
+  const { formatted: timeLeft, expired, secondsLeft } = useExpiryTimer(isPaymentActive);
 
   // Auto-advance to success when payment detected
   const shouldAdvance = step === "payment" && (status === "detected" || status === "confirmed");
   if (shouldAdvance) {
     setTimeout(() => setStep("success"), 0);
+  }
+
+  // Auto-expire
+  if (step === "payment" && expired) {
+    setTimeout(() => setStep("expired"), 0);
   }
 
   const handleSubmit = () => {
@@ -75,6 +82,25 @@ const Index = () => {
 
           {step === "payment" && xmrAmount && (
             <>
+              {/* Expiry timer bar */}
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+                <div className="flex items-center gap-2 text-sm">
+                  <Timer className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Expires in</span>
+                </div>
+                <span className={`font-mono text-sm font-semibold ${secondsLeft <= 60 ? "text-destructive" : secondsLeft <= 120 ? "text-accent" : "text-foreground"}`}>
+                  {timeLeft}
+                </span>
+              </div>
+
+              {/* Progress bar for timer */}
+              <div className="w-full bg-muted rounded-full h-1 mb-5">
+                <div
+                  className={`h-1 rounded-full transition-all duration-1000 ${secondsLeft <= 60 ? "bg-destructive" : secondsLeft <= 120 ? "bg-accent" : "bg-primary"}`}
+                  style={{ width: `${(secondsLeft / 300) * 100}%` }}
+                />
+              </div>
+
               <PaymentDetails
                 xmrAmount={xmrAmount}
                 thbAmount={thbAmount}
@@ -95,6 +121,26 @@ const Index = () => {
                 ← New Payment
               </button>
             </>
+          )}
+
+          {step === "expired" && (
+            <div className="text-center py-6">
+              <div className="flex justify-center mb-4">
+                <div className="p-4 rounded-full bg-destructive/20">
+                  <AlertTriangle className="w-12 h-12 text-destructive" />
+                </div>
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">Payment Expired</h2>
+              <p className="text-muted-foreground text-sm mb-6">
+                This payment request has expired. The XMR rate may have changed — please generate a new payment.
+              </p>
+              <button
+                onClick={handleBack}
+                className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:brightness-110 transition-all"
+              >
+                Generate New Payment
+              </button>
+            </div>
           )}
 
           {step === "success" && xmrAmount && (
