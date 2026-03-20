@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useXmrPrice, useXmrConversion } from "@/hooks/useXmrPrice";
+import { useBtcPrice, useBtcConversion } from "@/hooks/useBtcPrice";
 import { usePaymentVerification } from "@/hooks/usePaymentVerification";
 import { useExpiryTimer } from "@/hooks/useExpiryTimer";
 import { Shield, Lock, Eye, Zap, Loader2, AlertTriangle, Timer } from "lucide-react";
@@ -7,45 +8,52 @@ import XmrLogo from "@/components/XmrLogo";
 import PaymentForm from "@/components/PaymentForm";
 import PaymentDetails from "@/components/PaymentDetails";
 import PaymentSuccess from "@/components/PaymentSuccess";
+import LightningPayment from "@/components/LightningPayment";
 
 const XMR_ADDRESS = "42pkzGx9iv3exFFUmK87Lzi5DfBZPfcRSauv2Lnq1RxRZFjsmoA84sw2RWjPPrxL2tRKcWyaCV9L4eoXFBc4ytfpJW6MG8V";
 
+type PaymentMethod = "xmr" | "lightning";
 type Step = "form" | "payment" | "success" | "expired";
 
 const Index = () => {
-  const { price, loading, error } = useXmrPrice();
+  const { price: xmrPrice, loading: xmrLoading, error: xmrError } = useXmrPrice();
+  const { price: btcPrice, loading: btcLoading, error: btcError } = useBtcPrice();
   const [thbInput, setThbInput] = useState("");
   const [step, setStep] = useState<Step>("form");
+  const [method, setMethod] = useState<PaymentMethod>("xmr");
 
   const thbAmount = parseFloat(thbInput) || 0;
-  const xmrAmount = useXmrConversion(thbAmount, price);
+  const xmrAmount = useXmrConversion(thbAmount, xmrPrice);
+  const btcAmount = useBtcConversion(thbAmount, btcPrice);
 
   const paymentUri = xmrAmount
     ? `monero:${XMR_ADDRESS}?tx_amount=${xmrAmount.toFixed(12)}`
     : "";
 
-  const isPaymentActive = step === "payment";
+  const isPaymentActive = step === "payment" && method === "xmr";
   const { status, transfer } = usePaymentVerification(xmrAmount, isPaymentActive);
   const { formatted: timeLeft, expired, secondsLeft } = useExpiryTimer(isPaymentActive);
 
-  // Auto-advance to success when payment detected
-  const shouldAdvance = step === "payment" && (status === "detected" || status === "confirmed");
+  // Auto-advance to success when XMR payment detected
+  const shouldAdvance = step === "payment" && method === "xmr" && (status === "detected" || status === "confirmed");
   if (shouldAdvance) {
     setTimeout(() => setStep("success"), 0);
   }
 
-  // Auto-expire
-  if (step === "payment" && expired) {
+  // Auto-expire XMR payments
+  if (step === "payment" && method === "xmr" && expired) {
     setTimeout(() => setStep("expired"), 0);
   }
 
   const handleSubmit = () => {
-    if (!xmrAmount || xmrAmount <= 0) return;
+    if (method === "xmr" && (!xmrAmount || xmrAmount <= 0)) return;
+    if (method === "lightning" && (!btcAmount || btcAmount <= 0)) return;
     setStep("payment");
   };
 
   const handleClearCache = () => {
     localStorage.removeItem("xmr_thb_price");
+    localStorage.removeItem("btc_thb_price");
     window.location.reload();
   };
 
@@ -53,34 +61,69 @@ const Index = () => {
     setStep("form");
   };
 
+  const currentPrice = method === "xmr" ? xmrPrice : btcPrice;
+  const currentLoading = method === "xmr" ? xmrLoading : btcLoading;
+  const currentError = method === "xmr" ? xmrError : btcError;
+  const currentAmount = method === "xmr" ? xmrAmount : btcAmount;
+  const currencyLabel = method === "xmr" ? "XMR" : "BTC";
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
         <div className="flex items-center gap-3 mb-6">
           <XmrLogo />
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight glow-text">
-            Pay with <span className="text-primary">Monero</span>
+            Pay with <span className="text-primary">Crypto</span>
           </h1>
         </div>
         <p className="text-muted-foreground text-lg mb-12 text-center max-w-md">
-          Private, untraceable payments. Convert Thai Baht to XMR instantly.
+          Private, untraceable payments. Convert Thai Baht to XMR or BTC instantly.
         </p>
 
         <div className="w-full max-w-md gradient-border rounded-2xl bg-card p-6 glow-primary">
           {step === "form" && (
-            <PaymentForm
-              price={price}
-              loading={loading}
-              error={error}
-              thbInput={thbInput}
-              setThbInput={setThbInput}
-              xmrAmount={xmrAmount}
-              onSubmit={handleSubmit}
-              onClearCache={handleClearCache}
-            />
+            <>
+              {/* Payment method selector */}
+              <div className="flex gap-2 mb-6">
+                <button
+                  onClick={() => setMethod("xmr")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
+                    method === "xmr"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary text-muted-foreground border-border hover:text-foreground"
+                  }`}
+                >
+                  Monero (XMR)
+                </button>
+                <button
+                  onClick={() => setMethod("lightning")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
+                    method === "lightning"
+                      ? "border-transparent text-primary-foreground"
+                      : "bg-secondary text-muted-foreground border-border hover:text-foreground"
+                  }`}
+                  style={method === "lightning" ? { backgroundColor: "hsl(45, 100%, 50%)", color: "hsl(220, 20%, 6%)" } : {}}
+                >
+                  ⚡ Lightning
+                </button>
+              </div>
+
+              <PaymentForm
+                price={currentPrice}
+                loading={currentLoading}
+                error={currentError}
+                thbInput={thbInput}
+                setThbInput={setThbInput}
+                xmrAmount={currentAmount}
+                onSubmit={handleSubmit}
+                onClearCache={handleClearCache}
+                currencyLabel={currencyLabel}
+                rateLabel={method === "xmr" ? "1 XMR" : "1 BTC"}
+              />
+            </>
           )}
 
-          {step === "payment" && xmrAmount && (
+          {step === "payment" && method === "xmr" && xmrAmount && (
             <>
               {/* Expiry timer bar */}
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
@@ -123,6 +166,14 @@ const Index = () => {
             </>
           )}
 
+          {step === "payment" && method === "lightning" && (
+            <LightningPayment
+              btcAmount={btcAmount}
+              thbAmount={thbAmount}
+              onBack={handleBack}
+            />
+          )}
+
           {step === "expired" && (
             <div className="text-center py-6">
               <div className="flex justify-center mb-4">
@@ -132,7 +183,7 @@ const Index = () => {
               </div>
               <h2 className="text-xl font-bold text-foreground mb-2">Payment Expired</h2>
               <p className="text-muted-foreground text-sm mb-6">
-                This payment request has expired. The XMR rate may have changed — please generate a new payment.
+                This payment request has expired. The rate may have changed — please generate a new payment.
               </p>
               <button
                 onClick={handleBack}

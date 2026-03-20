@@ -9,9 +9,11 @@ interface PaymentFormProps {
   xmrAmount: number | null;
   onSubmit: () => void;
   onClearCache: () => void;
+  currencyLabel?: string;
+  rateLabel?: string;
 }
 
-const PaymentForm = ({ price, loading, error, thbInput, setThbInput, xmrAmount, onSubmit, onClearCache }: PaymentFormProps) => (
+const PaymentForm = ({ price, loading, error, thbInput, setThbInput, xmrAmount, onSubmit, onClearCache, currencyLabel = "XMR", rateLabel = "1 XMR" }: PaymentFormProps) => (
   <>
     {/* Rate Display */}
     <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
@@ -23,7 +25,7 @@ const PaymentForm = ({ price, loading, error, thbInput, setThbInput, xmrAmount, 
           ) : error ? (
             <span className="text-destructive text-sm">{error}</span>
           ) : (
-            <>1 XMR = ฿{price?.toLocaleString()}</>
+            <>{rateLabel} = ฿{price?.toLocaleString()}</>
           )}
         </div>
       </div>
@@ -60,7 +62,7 @@ const PaymentForm = ({ price, loading, error, thbInput, setThbInput, xmrAmount, 
     </div>
 
     <div className="space-y-2">
-      <label className="text-sm text-muted-foreground">You send (XMR)</label>
+      <label className="text-sm text-muted-foreground">You send ({currencyLabel})</label>
       <div className="bg-secondary border border-border rounded-xl py-3 px-4 font-mono text-lg text-primary min-h-[52px] flex items-center">
         {xmrAmount !== null ? xmrAmount.toFixed(8) : <span className="text-muted-foreground">—</span>}
       </div>
