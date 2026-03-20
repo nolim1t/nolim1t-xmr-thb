@@ -9,9 +9,11 @@ interface PaymentFormProps {
   xmrAmount: number | null;
   onSubmit: () => void;
   onClearCache: () => void;
+  currencyLabel?: string;
+  rateLabel?: string;
 }
 
-const PaymentForm = ({ price, loading, error, thbInput, setThbInput, xmrAmount, onSubmit, onClearCache }: PaymentFormProps) => (
+const PaymentForm = ({ price, loading, error, thbInput, setThbInput, xmrAmount, onSubmit, onClearCache, currencyLabel = "XMR", rateLabel = "1 XMR" }: PaymentFormProps) => (
   <>
     {/* Rate Display */}
     <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
