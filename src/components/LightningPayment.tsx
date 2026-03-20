@@ -30,9 +30,14 @@ const LightningPayment = ({ btcAmount, thbAmount, onBack }: LightningPaymentProp
         {btcAmount !== null && (
           <>
             <div className="font-mono text-2xl font-bold mt-1" style={{ color: "hsl(45, 100%, 50%)" }}>
-              {btcAmount.toFixed(8)} BTC
+              {Math.round(btcAmount * 100_000_000).toLocaleString()} sats
             </div>
-            <div className="text-sm text-muted-foreground mt-1">≈ ฿{thbAmount.toLocaleString()}</div>
+            <div className="font-mono text-sm text-muted-foreground mt-1">
+              {btcAmount.toFixed(8)} BTC · ≈ ฿{thbAmount.toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Enter this amount manually in your Lightning wallet
+            </p>
           </>
         )}
       </div>
