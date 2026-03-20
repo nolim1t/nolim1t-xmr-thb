@@ -62,7 +62,7 @@ const PaymentForm = ({ price, loading, error, thbInput, setThbInput, xmrAmount, 
     </div>
 
     <div className="space-y-2">
-      <label className="text-sm text-muted-foreground">You send (XMR)</label>
+      <label className="text-sm text-muted-foreground">You send ({currencyLabel})</label>
       <div className="bg-secondary border border-border rounded-xl py-3 px-4 font-mono text-lg text-primary min-h-[52px] flex items-center">
         {xmrAmount !== null ? xmrAmount.toFixed(8) : <span className="text-muted-foreground">—</span>}
       </div>
