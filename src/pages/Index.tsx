@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useXmrPrice, useXmrConversion } from "@/hooks/useXmrPrice";
 import { useBtcPrice, useBtcConversion } from "@/hooks/useBtcPrice";
 import { usePaymentVerification } from "@/hooks/usePaymentVerification";
@@ -16,11 +17,29 @@ type PaymentMethod = "xmr" | "lightning";
 type Step = "form" | "payment" | "success" | "expired";
 
 const Index = () => {
+  const [searchParams] = useSearchParams();
   const { price: xmrPrice, loading: xmrLoading, error: xmrError } = useXmrPrice();
   const { price: btcPrice, loading: btcLoading, error: btcError } = useBtcPrice();
-  const [thbInput, setThbInput] = useState("");
+
+  const urlThb = searchParams.get("thb");
+  const urlType = searchParams.get("type");
+
+  const [thbInput, setThbInput] = useState(urlThb || "");
+  const [method, setMethod] = useState<PaymentMethod>(urlType === "lightning" ? "lightning" : "xmr");
   const [step, setStep] = useState<Step>("form");
-  const [method, setMethod] = useState<PaymentMethod>("xmr");
+  const [autoStarted, setAutoStarted] = useState(false);
+
+  // Auto-navigate to payment page when URL params present and price is loaded
+  useEffect(() => {
+    if (autoStarted || !urlThb || !urlType) return;
+    const amount = parseFloat(urlThb);
+    if (amount <= 0) return;
+    const priceReady = urlType === "lightning" ? btcPrice : xmrPrice;
+    if (priceReady) {
+      setAutoStarted(true);
+      setStep("payment");
+    }
+  }, [urlThb, urlType, btcPrice, xmrPrice, autoStarted]);
 
   const thbAmount = parseFloat(thbInput) || 0;
   const xmrAmount = useXmrConversion(thbAmount, xmrPrice);
