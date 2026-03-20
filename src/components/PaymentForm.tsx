@@ -25,7 +25,7 @@ const PaymentForm = ({ price, loading, error, thbInput, setThbInput, xmrAmount, 
           ) : error ? (
             <span className="text-destructive text-sm">{error}</span>
           ) : (
-            <>1 XMR = ฿{price?.toLocaleString()}</>
+            <>{rateLabel} = ฿{price?.toLocaleString()}</>
           )}
         </div>
       </div>
