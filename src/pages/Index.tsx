@@ -178,7 +178,7 @@ const Index = () => {
               {/* Polling indicator */}
               <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span>Watching for incoming payment...</span>
+                <span>Watching for payment... ({pollCount}/{maxPolls})</span>
               </div>
 
               <button
