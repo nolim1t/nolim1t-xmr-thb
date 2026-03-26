@@ -4,7 +4,7 @@ import { useXmrPrice, useXmrConversion } from "@/hooks/useXmrPrice";
 import { useBtcPrice, useBtcConversion } from "@/hooks/useBtcPrice";
 import { usePaymentVerification } from "@/hooks/usePaymentVerification";
 import { useExpiryTimer } from "@/hooks/useExpiryTimer";
-import { Shield, Lock, Eye, Zap, Loader2, AlertTriangle, Timer } from "lucide-react";
+import { Shield, Lock, Eye, Zap, Loader2, AlertTriangle, Timer, RefreshCw } from "lucide-react";
 import XmrLogo from "@/components/XmrLogo";
 import PaymentForm from "@/components/PaymentForm";
 import PaymentDetails from "@/components/PaymentDetails";
@@ -50,7 +50,7 @@ const Index = () => {
     : "";
 
   const isPaymentActive = step === "payment" && method === "xmr";
-  const { status, transfer } = usePaymentVerification(xmrAmount, isPaymentActive);
+  const { status, transfer, pollCount, maxPolls, manualCheck } = usePaymentVerification(xmrAmount, isPaymentActive);
   const { formatted: timeLeft, expired, secondsLeft } = useExpiryTimer(isPaymentActive);
 
   // Auto-advance to success when XMR payment detected
@@ -59,8 +59,8 @@ const Index = () => {
     setTimeout(() => setStep("success"), 0);
   }
 
-  // Auto-expire XMR payments
-  if (step === "payment" && method === "xmr" && expired) {
+  // Auto-expire XMR payments (from timer OR verification polling)
+  if (step === "payment" && method === "xmr" && (expired || status === "expired")) {
     setTimeout(() => setStep("expired"), 0);
   }
 
@@ -178,7 +178,7 @@ const Index = () => {
               {/* Polling indicator */}
               <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span>Watching for incoming payment...</span>
+                <span>Watching for payment... ({pollCount}/{maxPolls})</span>
               </div>
 
               <button
@@ -209,6 +209,15 @@ const Index = () => {
               <p className="text-muted-foreground text-sm mb-6">
                 This payment request has expired. The rate may have changed — please generate a new payment.
               </p>
+              {method === "xmr" && (
+                <button
+                  onClick={manualCheck}
+                  className="w-full py-3 rounded-xl bg-secondary border border-border text-sm font-semibold text-foreground hover:border-primary transition-all flex items-center justify-center gap-2 mb-3"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Check for Payment Manually
+                </button>
+              )}
               <button
                 onClick={handleBack}
                 className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:brightness-110 transition-all"
