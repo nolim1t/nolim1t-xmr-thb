@@ -50,7 +50,7 @@ const Index = () => {
     : "";
 
   const isPaymentActive = step === "payment" && method === "xmr";
-  const { status, transfer } = usePaymentVerification(xmrAmount, isPaymentActive);
+  const { status, transfer, pollCount, maxPolls, manualCheck } = usePaymentVerification(xmrAmount, isPaymentActive);
   const { formatted: timeLeft, expired, secondsLeft } = useExpiryTimer(isPaymentActive);
 
   // Auto-advance to success when XMR payment detected
