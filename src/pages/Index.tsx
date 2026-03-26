@@ -4,7 +4,7 @@ import { useXmrPrice, useXmrConversion } from "@/hooks/useXmrPrice";
 import { useBtcPrice, useBtcConversion } from "@/hooks/useBtcPrice";
 import { usePaymentVerification } from "@/hooks/usePaymentVerification";
 import { useExpiryTimer } from "@/hooks/useExpiryTimer";
-import { Shield, Lock, Eye, Zap, Loader2, AlertTriangle, Timer } from "lucide-react";
+import { Shield, Lock, Eye, Zap, Loader2, AlertTriangle, Timer, RefreshCw } from "lucide-react";
 import XmrLogo from "@/components/XmrLogo";
 import PaymentForm from "@/components/PaymentForm";
 import PaymentDetails from "@/components/PaymentDetails";
