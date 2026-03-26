@@ -59,8 +59,8 @@ const Index = () => {
     setTimeout(() => setStep("success"), 0);
   }
 
-  // Auto-expire XMR payments
-  if (step === "payment" && method === "xmr" && expired) {
+  // Auto-expire XMR payments (from timer OR verification polling)
+  if (step === "payment" && method === "xmr" && (expired || status === "expired")) {
     setTimeout(() => setStep("expired"), 0);
   }
 
