@@ -106,12 +106,17 @@ const Index = () => {
               <div className="flex gap-2 mb-6">
                 <button
                   onClick={() => setMethod("xmr")}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border flex items-center justify-center gap-2 ${
                     method === "xmr"
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-secondary text-muted-foreground border-border hover:text-foreground"
                   }`}
                 >
+                  <svg viewBox="0 0 256 256" className="w-5 h-5" fill="none">
+                    <circle cx="128" cy="128" r="128" fill="hsl(var(--xmr-orange))" />
+                    <path d="M63 192V100l65 65 65-65v92h-30v-50l-35 35-35-35v50z" fill="white" />
+                    <path d="M43 192h30v-30H43v30zm140-30v30h30v-30h-30z" fill="white" />
+                  </svg>
                   Monero (XMR)
                 </button>
                 <button
