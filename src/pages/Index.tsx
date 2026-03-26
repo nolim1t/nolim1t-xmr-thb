@@ -209,6 +209,15 @@ const Index = () => {
               <p className="text-muted-foreground text-sm mb-6">
                 This payment request has expired. The rate may have changed — please generate a new payment.
               </p>
+              {method === "xmr" && (
+                <button
+                  onClick={manualCheck}
+                  className="w-full py-3 rounded-xl bg-secondary border border-border text-sm font-semibold text-foreground hover:border-primary transition-all flex items-center justify-center gap-2 mb-3"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Check for Payment Manually
+                </button>
+              )}
               <button
                 onClick={handleBack}
                 className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:brightness-110 transition-all"
