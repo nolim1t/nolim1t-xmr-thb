@@ -6,7 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const XMR_RPC = "https://xmr.privacygateway.io/json_rpc";
 const XMR_DAEMON = "https://xmr.privacygateway.io";
 
 serve(async (req) => {
@@ -15,109 +14,55 @@ serve(async (req) => {
   }
 
   try {
-    const { action, expectedAmount } = await req.json();
+    const { action, txHash } = await req.json();
 
-    if (action === "check") {
-      // Get current blockchain height
-      const heightRes = await fetch(XMR_RPC, {
+    if (action === "verify_tx" && txHash) {
+      // Look up the specific transaction by hash
+      const txRes = await fetch(`${XMR_DAEMON}/get_transactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: "0",
-          method: "get_block_count",
-          params: {},
+          txs_hashes: [txHash],
+          decode_as_json: true,
         }),
       });
-      const heightData = await heightRes.json();
-      if (heightData.error) throw new Error(heightData.error.message);
-      const currentHeight: number = heightData.result.count;
+      const txData = await txRes.json();
 
-      // Check last 20 blocks
-      for (let i = 0; i < 20; i++) {
-        const height = currentHeight - 1 - i;
-        const blockRes = await fetch(XMR_RPC, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: "0",
-            method: "get_block",
-            params: { height },
-          }),
-        });
-        const blockData = await blockRes.json();
-        if (blockData.error) continue;
-
-        const txHashes: string[] =
-          blockData.result?.block_header?.tx_hashes || [];
-        if (txHashes.length === 0) continue;
-
-        for (const txHash of txHashes) {
-          try {
-            const txRes = await fetch(`${XMR_DAEMON}/get_transactions`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                txs_hashes: [txHash],
-                decode_as_json: true,
-              }),
-            });
-            const txData = await txRes.json();
-
-            if (txData.txs?.length > 0 && txData.txs[0].as_json) {
-              const txJson = JSON.parse(txData.txs[0].as_json);
-              const outputs = txJson.vout || [];
-              const confirmations = currentHeight - height;
-
-              if (outputs.length > 0) {
-                return new Response(
-                  JSON.stringify({
-                    found: true,
-                    txHash,
-                    amount: expectedAmount,
-                    confirmations,
-                    blockHeight: height,
-                  }),
-                  { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-                );
-              }
-            }
-          } catch {
-            continue;
-          }
-        }
+      if (!txData.txs || txData.txs.length === 0) {
+        return new Response(
+          JSON.stringify({ found: false, error: "Transaction not found" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
-      // Check mempool
-      try {
-        const poolRes = await fetch(`${XMR_DAEMON}/get_transaction_pool`);
-        const poolData = await poolRes.json();
+      const tx = txData.txs[0];
 
-        if (poolData.transactions?.length > 0) {
-          return new Response(
-            JSON.stringify({
-              found: true,
-              txHash: poolData.transactions[0].id_hash || "mempool",
-              amount: expectedAmount,
-              confirmations: 0,
-              blockHeight: null,
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-      } catch {
-        // Mempool check failed
+      // Check if tx is valid (not failed)
+      if (tx.in_pool === false && !tx.block_height) {
+        return new Response(
+          JSON.stringify({ found: false, error: "Transaction not found on blockchain" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+
+      const confirmations = tx.block_height
+        ? await getConfirmations(tx.block_height)
+        : 0;
 
       return new Response(
-        JSON.stringify({ found: false }),
+        JSON.stringify({
+          found: true,
+          txHash,
+          inPool: tx.in_pool || false,
+          confirmations,
+          blockHeight: tx.block_height || null,
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action" }),
+      JSON.stringify({ error: "Unknown action. Use 'verify_tx' with a txHash." }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
@@ -127,3 +72,25 @@ serve(async (req) => {
     );
   }
 });
+
+async function getConfirmations(blockHeight: number): Promise<number> {
+  try {
+    const res = await fetch(`${XMR_DAEMON}/json_rpc`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "0",
+        method: "get_block_count",
+        params: {},
+      }),
+    });
+    const data = await res.json();
+    if (data.result?.count) {
+      return data.result.count - blockHeight;
+    }
+  } catch {
+    // ignore
+  }
+  return 0;
+}
