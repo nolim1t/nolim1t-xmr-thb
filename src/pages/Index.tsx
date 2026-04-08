@@ -257,9 +257,24 @@ const Index = () => {
                 )}
               </div>
 
+              {/* Keychat contact link */}
+              <div className="mt-4 pt-3 border-t border-border">
+                <a
+                  href="https://www.keychat.io/u/?k=npub1z34a5nkxjv5rq5p7unuw3d3xh4an54uyyv4cys96zhyvhlu6qlxs4qnh9r"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  Issues? Contact via Keychat
+                </a>
+              </div>
+
               <button
                 onClick={handleBack}
-                className="w-full mt-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="w-full mt-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 ← New Payment
               </button>
