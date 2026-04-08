@@ -4,7 +4,7 @@ import { useXmrPrice, useXmrConversion } from "@/hooks/useXmrPrice";
 import { useBtcPrice, useBtcConversion } from "@/hooks/useBtcPrice";
 import { usePaymentVerification } from "@/hooks/usePaymentVerification";
 import { useExpiryTimer } from "@/hooks/useExpiryTimer";
-import { Shield, Lock, Eye, Zap, Loader2, AlertTriangle, Timer, RefreshCw } from "lucide-react";
+import { Shield, Lock, Eye, Zap, Loader2, AlertTriangle, Timer, Search, CheckCircle2, Clock } from "lucide-react";
 import XmrLogo from "@/components/XmrLogo";
 import PaymentForm from "@/components/PaymentForm";
 import PaymentDetails from "@/components/PaymentDetails";
@@ -14,7 +14,7 @@ import LightningPayment from "@/components/LightningPayment";
 const XMR_ADDRESS = "42pkzGx9iv3exFFUmK87Lzi5DfBZPfcRSauv2Lnq1RxRZFjsmoA84sw2RWjPPrxL2tRKcWyaCV9L4eoXFBc4ytfpJW6MG8V";
 
 type PaymentMethod = "xmr" | "lightning";
-type Step = "form" | "payment" | "success" | "expired";
+type Step = "form" | "payment" | "success";
 
 const Index = () => {
   const [searchParams] = useSearchParams();
@@ -28,6 +28,9 @@ const Index = () => {
   const [method, setMethod] = useState<PaymentMethod>(urlType === "lightning" ? "lightning" : "xmr");
   const [step, setStep] = useState<Step>("form");
   const [autoStarted, setAutoStarted] = useState(false);
+  const [txHashInput, setTxHashInput] = useState("");
+
+  const { status: verifyStatus, transfer, error: verifyError, verifyTxHash, reset: resetVerification } = usePaymentVerification();
 
   // Auto-navigate to payment page when URL params present and price is loaded
   useEffect(() => {
@@ -50,19 +53,14 @@ const Index = () => {
     : "";
 
   const isPaymentActive = step === "payment" && method === "xmr";
-  const { status, transfer, pollCount, maxPolls, manualCheck } = usePaymentVerification(xmrAmount, isPaymentActive);
   const { formatted: timeLeft, expired, secondsLeft } = useExpiryTimer(isPaymentActive);
 
-  // Auto-advance to success when XMR payment detected
-  const shouldAdvance = step === "payment" && method === "xmr" && (status === "detected" || status === "confirmed");
-  if (shouldAdvance) {
-    setTimeout(() => setStep("success"), 0);
-  }
-
-  // Auto-expire XMR payments (from timer OR verification polling)
-  if (step === "payment" && method === "xmr" && (expired || status === "expired")) {
-    setTimeout(() => setStep("expired"), 0);
-  }
+  // Auto-advance to success when confirmed
+  useEffect(() => {
+    if (step === "payment" && method === "xmr" && verifyStatus === "confirmed") {
+      setStep("success");
+    }
+  }, [step, method, verifyStatus]);
 
   const handleSubmit = () => {
     if (method === "xmr" && (!xmrAmount || xmrAmount <= 0)) return;
@@ -78,6 +76,12 @@ const Index = () => {
 
   const handleBack = () => {
     setStep("form");
+    setTxHashInput("");
+    resetVerification();
+  };
+
+  const handleVerifyTx = () => {
+    verifyTxHash(txHashInput);
   };
 
   const currentPrice = method === "xmr" ? xmrPrice : btcPrice;
@@ -150,23 +154,32 @@ const Index = () => {
           {step === "payment" && method === "xmr" && xmrAmount && (
             <>
               {/* Expiry timer bar */}
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
-                <div className="flex items-center gap-2 text-sm">
-                  <Timer className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Expires in</span>
-                </div>
-                <span className={`font-mono text-sm font-semibold ${secondsLeft <= 60 ? "text-destructive" : secondsLeft <= 120 ? "text-accent" : "text-foreground"}`}>
-                  {timeLeft}
-                </span>
-              </div>
+              {!expired && (
+                <>
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Timer className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Rate valid for</span>
+                    </div>
+                    <span className={`font-mono text-sm font-semibold ${secondsLeft <= 60 ? "text-destructive" : secondsLeft <= 120 ? "text-accent" : "text-foreground"}`}>
+                      {timeLeft}
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-1 mb-5">
+                    <div
+                      className={`h-1 rounded-full transition-all duration-1000 ${secondsLeft <= 60 ? "bg-destructive" : secondsLeft <= 120 ? "bg-accent" : "bg-primary"}`}
+                      style={{ width: `${(secondsLeft / 300) * 100}%` }}
+                    />
+                  </div>
+                </>
+              )}
 
-              {/* Progress bar for timer */}
-              <div className="w-full bg-muted rounded-full h-1 mb-5">
-                <div
-                  className={`h-1 rounded-full transition-all duration-1000 ${secondsLeft <= 60 ? "bg-destructive" : secondsLeft <= 120 ? "bg-accent" : "bg-primary"}`}
-                  style={{ width: `${(secondsLeft / 300) * 100}%` }}
-                />
-              </div>
+              {expired && (
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border text-sm text-destructive">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Rate expired — verify TX or generate a new payment</span>
+                </div>
+              )}
 
               <PaymentDetails
                 xmrAmount={xmrAmount}
@@ -175,10 +188,73 @@ const Index = () => {
                 paymentUri={paymentUri}
               />
 
-              {/* Polling indicator */}
-              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span>Watching for payment... ({pollCount}/{maxPolls})</span>
+              {/* TX Hash verification section */}
+              <div className="mt-5 pt-4 border-t border-border">
+                <p className="text-sm text-muted-foreground mb-3">
+                  After sending, paste your <strong>transaction hash (TX ID)</strong> below to verify:
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={txHashInput}
+                    onChange={(e) => setTxHashInput(e.target.value)}
+                    placeholder="Enter TX hash..."
+                    className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary font-mono"
+                  />
+                  <button
+                    onClick={handleVerifyTx}
+                    disabled={verifyStatus === "checking" || !txHashInput.trim()}
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {verifyStatus === "checking" ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                    Verify
+                  </button>
+                </div>
+
+                {/* Verification result */}
+                {verifyStatus === "detected" && transfer && (
+                  <div className="mt-3 p-3 rounded-lg bg-accent/10 border border-accent/30 flex items-start gap-2">
+                    <Clock className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-semibold text-accent">Transaction Found (In Mempool)</p>
+                      <p className="text-muted-foreground">Waiting for confirmation. You can check again shortly.</p>
+                    </div>
+                  </div>
+                )}
+
+                {verifyStatus === "confirmed" && transfer && (
+                  <div className="mt-3 p-3 rounded-lg bg-primary/10 border border-primary/30 flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-semibold text-primary">Payment Confirmed!</p>
+                      <p className="text-muted-foreground">{transfer.confirmations} confirmation(s) · Block {transfer.blockHeight}</p>
+                    </div>
+                  </div>
+                )}
+
+                {verifyStatus === "not_found" && (
+                  <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/30 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-semibold text-destructive">Not Found</p>
+                      <p className="text-muted-foreground">{verifyError}</p>
+                    </div>
+                  </div>
+                )}
+
+                {verifyStatus === "error" && (
+                  <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/30 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-semibold text-destructive">Error</p>
+                      <p className="text-muted-foreground">{verifyError}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <button
@@ -196,35 +272,6 @@ const Index = () => {
               thbAmount={thbAmount}
               onBack={handleBack}
             />
-          )}
-
-          {step === "expired" && (
-            <div className="text-center py-6">
-              <div className="flex justify-center mb-4">
-                <div className="p-4 rounded-full bg-destructive/20">
-                  <AlertTriangle className="w-12 h-12 text-destructive" />
-                </div>
-              </div>
-              <h2 className="text-xl font-bold text-foreground mb-2">Payment Expired</h2>
-              <p className="text-muted-foreground text-sm mb-6">
-                This payment request has expired. The rate may have changed — please generate a new payment.
-              </p>
-              {method === "xmr" && (
-                <button
-                  onClick={manualCheck}
-                  className="w-full py-3 rounded-xl bg-secondary border border-border text-sm font-semibold text-foreground hover:border-primary transition-all flex items-center justify-center gap-2 mb-3"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Check for Payment Manually
-                </button>
-              )}
-              <button
-                onClick={handleBack}
-                className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:brightness-110 transition-all"
-              >
-                Generate New Payment
-              </button>
-            </div>
           )}
 
           {step === "success" && xmrAmount && (
